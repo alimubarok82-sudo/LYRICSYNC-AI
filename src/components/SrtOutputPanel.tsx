@@ -193,7 +193,7 @@ export const SrtOutputPanel: React.FC<SrtOutputPanelProps> = ({
                 title="Render subtitles into WebM video format"
               >
                 <Video className="w-3.5 h-3.5" />
-                <span>Export WebM</span>
+                <span>Export</span>
               </button>
             )}
           </div>

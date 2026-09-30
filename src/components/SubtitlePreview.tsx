@@ -263,7 +263,7 @@ export const SubtitlePreview: React.FC<SubtitlePreviewProps> = ({
             )}
           </button>
 
-          {/* Quick WebM Export Button */}
+          {/* Quick Video Export Button */}
           {onExportWebm && (
             <button
               onClick={onExportWebm}
@@ -271,7 +271,7 @@ export const SubtitlePreview: React.FC<SubtitlePreviewProps> = ({
               title="Render to WebM video"
             >
               <Video className="w-3.5 h-3.5 text-amber-400" />
-              <span>Export WebM</span>
+              <span>Export</span>
             </button>
           )}
         </div>

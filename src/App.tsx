@@ -635,7 +635,6 @@ export default function App() {
         onOpenProjects={() => setIsProjectsOpen(true)}
         onOpenSettings={() => setIsStyleSettingsOpen(true)}
         onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
-        onExportWebm={() => setIsExportWebmOpen(true)}
         onSave={handleSave}
         canUndo={canUndo}
         canRedo={canRedo}
