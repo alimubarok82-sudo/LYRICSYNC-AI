@@ -76,7 +76,15 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onApi
         body: JSON.stringify({ customApiKey: keyToTest }),
       });
 
-      const data = await res.json();
+      const rawText = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        // If response is HTML (e.g. 404 from static host/Vercel before function deployment)
+        data = { error: rawText.includes('<html') ? 'Server backend /api belum aktif di hosting. Kunci Anda tetap valid untuk disimpan secara lokal.' : rawText };
+      }
+
       if (res.ok && data.success) {
         setTestResult({
           success: true,
