@@ -8,6 +8,7 @@ import {
   FileArchive,
   FileText,
   Sparkles,
+  Video,
 } from 'lucide-react';
 import JSZip from 'jszip';
 import {
@@ -28,6 +29,7 @@ interface SrtOutputPanelProps {
   showVerseNumber: boolean;
   onSelectTranslationLanguage: (lang: string) => void;
   onTranslateMissing?: () => void;
+  onExportWebm?: () => void;
 }
 
 export const SrtOutputPanel: React.FC<SrtOutputPanelProps> = ({
@@ -40,6 +42,7 @@ export const SrtOutputPanel: React.FC<SrtOutputPanelProps> = ({
   showVerseNumber,
   onSelectTranslationLanguage,
   onTranslateMissing,
+  onExportWebm,
 }) => {
   const [exportMode, setExportMode] = useState<SubtitleDisplayMode>('bilingual');
   const [copied, setCopied] = useState(false);
@@ -182,6 +185,17 @@ export const SrtOutputPanel: React.FC<SrtOutputPanelProps> = ({
               <FileArchive className="w-3.5 h-3.5 text-amber-400" />
               <span>{isZipping ? 'Bundling...' : 'All (.ZIP)'}</span>
             </button>
+
+            {onExportWebm && (
+              <button
+                onClick={onExportWebm}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-neutral-950 font-bold text-xs shadow-md transition"
+                title="Render subtitles into WebM video format"
+              >
+                <Video className="w-3.5 h-3.5" />
+                <span>Export WebM</span>
+              </button>
+            )}
           </div>
         </div>
 

@@ -7,6 +7,7 @@ import {
   Eye,
   Globe,
   Palette,
+  Video,
 } from 'lucide-react';
 import {
   SubtitleSegment,
@@ -27,6 +28,7 @@ interface SubtitlePreviewProps {
   originalLanguage: string;
   onUpdateSettings: (settings: Partial<SubtitleStyleSettings>) => void;
   onSelectSegment?: (segmentId: number) => void;
+  onExportWebm?: () => void;
 }
 
 export const SubtitlePreview: React.FC<SubtitlePreviewProps> = ({
@@ -37,6 +39,7 @@ export const SubtitlePreview: React.FC<SubtitlePreviewProps> = ({
   originalLanguage,
   onUpdateSettings,
   onSelectSegment,
+  onExportWebm,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -259,6 +262,18 @@ export const SubtitlePreview: React.FC<SubtitlePreviewProps> = ({
               <Maximize2 className="w-3.5 h-3.5" />
             )}
           </button>
+
+          {/* Quick WebM Export Button */}
+          {onExportWebm && (
+            <button
+              onClick={onExportWebm}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-semibold transition"
+              title="Render to WebM video"
+            >
+              <Video className="w-3.5 h-3.5 text-amber-400" />
+              <span>Export WebM</span>
+            </button>
+          )}
         </div>
       </div>
 

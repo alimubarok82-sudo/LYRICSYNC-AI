@@ -13,6 +13,7 @@ import {
   Mic,
   Disc,
   Key,
+  Video,
 } from 'lucide-react';
 import { SubtitleContentType } from '../types/subtitle';
 
@@ -26,6 +27,7 @@ interface HeaderProps {
   onOpenProjects: () => void;
   onOpenSettings: () => void;
   onOpenApiKeyModal: () => void;
+  onExportWebm: () => void;
   onSave: () => void;
   canUndo: boolean;
   canRedo: boolean;
@@ -44,6 +46,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenProjects,
   onOpenSettings,
   onOpenApiKeyModal,
+  onExportWebm,
   onSave,
   canUndo,
   canRedo,
@@ -211,11 +214,20 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           <button
+            onClick={onExportWebm}
+            className="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-neutral-950 transition flex items-center gap-1.5 shadow-sm shadow-amber-500/20"
+            title="Export Video WebM (16:9 / 9:16)"
+          >
+            <Video className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Export WebM</span>
+          </button>
+
+          <button
             onClick={onSave}
-            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 transition flex items-center gap-1.5 shadow-sm shadow-amber-500/30"
+            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition flex items-center gap-1.5"
             title="Save Project"
           >
-            <Save className="w-3.5 h-3.5" />
+            <Save className="w-3.5 h-3.5 text-amber-400" />
             <span>{isSaving ? 'Saving...' : 'Save'}</span>
           </button>
         </div>

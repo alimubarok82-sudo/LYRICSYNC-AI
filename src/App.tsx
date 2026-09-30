@@ -10,6 +10,7 @@ import { PasteLyricsModal } from './components/PasteLyricsModal';
 import { StyleSettingsModal } from './components/StyleSettingsModal';
 import { ProjectsModal } from './components/ProjectsModal';
 import { ApiKeyModal } from './components/ApiKeyModal';
+import { ExportWebmModal } from './components/ExportWebmModal';
 
 import {
   SubtitleProject,
@@ -45,6 +46,7 @@ export default function App() {
   const [isStyleSettingsOpen, setIsStyleSettingsOpen] = useState(false);
   const [isProjectsOpen, setIsProjectsOpen] = useState(false);
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+  const [isExportWebmOpen, setIsExportWebmOpen] = useState(false);
 
   // Undo / Redo Manager instance
   const undoManagerRef = useRef<UndoManager<SubtitleSegment[]>>(
@@ -633,6 +635,7 @@ export default function App() {
         onOpenProjects={() => setIsProjectsOpen(true)}
         onOpenSettings={() => setIsStyleSettingsOpen(true)}
         onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
+        onExportWebm={() => setIsExportWebmOpen(true)}
         onSave={handleSave}
         canUndo={canUndo}
         canRedo={canRedo}
@@ -699,6 +702,7 @@ export default function App() {
               el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
           }}
+          onExportWebm={() => setIsExportWebmOpen(true)}
         />
 
         {/* MIDDLE SECTION: Audio Player & Waveform Timeline */}
@@ -821,6 +825,7 @@ export default function App() {
                 false
               )
             }
+            onExportWebm={() => setIsExportWebmOpen(true)}
           />
         )}
       </main>
@@ -873,6 +878,12 @@ export default function App() {
             showToast('Menggunakan kunci server bawaan.');
           }
         }}
+      />
+
+      <ExportWebmModal
+        isOpen={isExportWebmOpen}
+        onClose={() => setIsExportWebmOpen(false)}
+        project={project}
       />
     </div>
   );
