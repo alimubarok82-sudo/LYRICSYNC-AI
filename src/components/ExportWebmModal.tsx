@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Video,
   X,
@@ -12,6 +12,7 @@ import {
   Layers,
   Volume2,
   VolumeX,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { SubtitleProject } from '../types/subtitle';
 import { renderProjectToWebM, WebMRenderResult } from '../utils/webmExporter';
@@ -27,12 +28,23 @@ export const ExportWebmModal: React.FC<ExportWebmModalProps> = ({
   onClose,
   project,
 }) => {
+  const hasBackdropImage = Boolean(project.settings.backgroundImageUrl);
+
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>(
     project.settings.aspectRatio === '9:16' ? '9:16' : '16:9'
   );
   const [quality, setQuality] = useState<'1080p' | '720p'>('1080p');
-  const [backgroundStyle, setBackgroundStyle] = useState<'black' | 'dark' | 'transparent'>('black');
+  const [backgroundStyle, setBackgroundStyle] = useState<'image' | 'black' | 'dark' | 'transparent'>(
+    hasBackdropImage ? 'image' : 'black'
+  );
   const [includeAudio, setIncludeAudio] = useState(true);
+
+  // Auto-sync backgroundStyle if user previously uploaded backdrop image
+  useEffect(() => {
+    if (project.settings.backgroundImageUrl) {
+      setBackgroundStyle('image');
+    }
+  }, [project.settings.backgroundImageUrl, isOpen]);
 
   const [isRendering, setIsRendering] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -54,6 +66,7 @@ export const ExportWebmModal: React.FC<ExportWebmModalProps> = ({
         aspectRatio,
         quality,
         backgroundStyle,
+        backgroundImageUrl: project.settings.backgroundImageUrl,
         includeAudio,
         onProgress: (pct, text) => {
           setProgress(pct);
@@ -188,8 +201,13 @@ export const ExportWebmModal: React.FC<ExportWebmModalProps> = ({
 
               {/* Background Style */}
               <div>
-                <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
-                  Latar Belakang Video:
+                <label className="block text-xs font-semibold text-neutral-300 mb-1.5 flex items-center justify-between">
+                  <span>Latar Belakang Video:</span>
+                  {hasBackdropImage && (
+                    <span className="text-[10px] text-amber-400 font-medium flex items-center gap-1">
+                      <ImageIcon className="w-3 h-3" /> Image Aktif
+                    </span>
+                  )}
                 </label>
                 <select
                   value={backgroundStyle}
@@ -197,12 +215,33 @@ export const ExportWebmModal: React.FC<ExportWebmModalProps> = ({
                   disabled={isRendering}
                   className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-1.5 text-xs text-neutral-200 focus:outline-none focus:border-amber-500"
                 >
+                  {hasBackdropImage && (
+                    <option value="image">Gambar Backdrop (Uploaded Image)</option>
+                  )}
                   <option value="black">Hitam Solid (Black)</option>
                   <option value="dark">Gradien Sinematik (Dark)</option>
                   <option value="transparent">Transparan (Alpha Overlay)</option>
                 </select>
               </div>
             </div>
+
+            {/* Backdrop Image Preview Banner if available */}
+            {hasBackdropImage && backgroundStyle === 'image' && (
+              <div className="flex items-center gap-3 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs">
+                <div
+                  className="w-14 h-9 rounded-lg border border-neutral-700 bg-cover bg-center shrink-0"
+                  style={{ backgroundImage: `url(${project.settings.backgroundImageUrl})` }}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="text-amber-300 font-semibold truncate">
+                    Gambar Backdrop Aktif Terdeteksi
+                  </div>
+                  <div className="text-[11px] text-neutral-400">
+                    Gambar ini akan dirender secara presisi sebagai latar belakang video WebM Anda.
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Audio Checkbox */}
             <div className="flex items-center justify-between p-3 rounded-xl bg-neutral-900/60 border border-neutral-800/80">

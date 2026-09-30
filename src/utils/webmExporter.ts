@@ -4,7 +4,8 @@ import { formatQuranVerseSymbol } from './languages';
 export interface WebMExportOptions {
   aspectRatio: '16:9' | '9:16';
   quality: '1080p' | '720p';
-  backgroundStyle: 'black' | 'dark' | 'transparent';
+  backgroundStyle: 'image' | 'black' | 'dark' | 'transparent';
+  backgroundImageUrl?: string | null;
   includeAudio: boolean;
   onProgress?: (progress: number, statusText: string) => void;
 }
@@ -14,6 +15,46 @@ export interface WebMRenderResult {
   url: string;
   filename: string;
   duration: number;
+}
+
+/**
+ * Loads an HTMLImageElement from a URL or Base64 data string safely.
+ */
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = (e) => reject(new Error('Gagal memuat file gambar backdrop: ' + e));
+    img.src = src;
+  });
+}
+
+/**
+ * Draws an image with object-fit: cover into canvas context.
+ */
+function drawImageCover(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  targetWidth: number,
+  targetHeight: number
+) {
+  const imgRatio = img.width / img.height;
+  const targetRatio = targetWidth / targetHeight;
+  let renderWidth = targetWidth;
+  let renderHeight = targetHeight;
+  let offsetX = 0;
+  let offsetY = 0;
+
+  if (imgRatio > targetRatio) {
+    renderWidth = targetHeight * imgRatio;
+    offsetX = (targetWidth - renderWidth) / 2;
+  } else {
+    renderHeight = targetWidth / imgRatio;
+    offsetY = (targetHeight - renderHeight) / 2;
+  }
+
+  ctx.drawImage(img, offsetX, offsetY, renderWidth, renderHeight);
 }
 
 /**
@@ -27,6 +68,7 @@ export async function renderProjectToWebM(
     aspectRatio = '16:9',
     quality = '1080p',
     backgroundStyle = 'black',
+    backgroundImageUrl = project.settings.backgroundImageUrl,
     includeAudio = true,
     onProgress,
   } = options;
@@ -134,11 +176,36 @@ export async function renderProjectToWebM(
     }
   };
 
+  // Preload background image if selected or present
+  let loadedBgImage: HTMLImageElement | null = null;
+  const effectiveBgUrl = backgroundImageUrl || (backgroundStyle === 'image' ? project.settings.backgroundImageUrl : null);
+
+  if ((backgroundStyle === 'image' || effectiveBgUrl) && backgroundStyle !== 'transparent') {
+    if (effectiveBgUrl) {
+      try {
+        onProgress?.(3, 'Memuat gambar latar backdrop...');
+        loadedBgImage = await loadImage(effectiveBgUrl);
+      } catch (err) {
+        console.warn('Gagal memuat gambar backdrop, beralih ke warna gelap:', err);
+      }
+    }
+  }
+
   // Helper function to draw frame
   const drawFrame = (currentTimeSec: number) => {
     // 1. Draw Background
     if (backgroundStyle === 'transparent') {
       ctx.clearRect(0, 0, width, height);
+    } else if (loadedBgImage) {
+      // Draw background image scaled cover
+      drawImageCover(ctx, loadedBgImage, width, height);
+
+      // Add cinematic dark overlay to maintain subtitle legibility (as in preview)
+      const overlayGradient = ctx.createLinearGradient(0, 0, 0, height);
+      overlayGradient.addColorStop(0, 'rgba(0, 0, 0, 0.60)');
+      overlayGradient.addColorStop(1, 'rgba(0, 0, 0, 0.75)');
+      ctx.fillStyle = overlayGradient;
+      ctx.fillRect(0, 0, width, height);
     } else if (backgroundStyle === 'dark') {
       const gradient = ctx.createLinearGradient(0, 0, 0, height);
       gradient.addColorStop(0, '#0a0d14');
