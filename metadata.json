@@ -1,0 +1,6 @@
+{
+  "name": "LyricSync AI",
+  "description": "Professional bilingual and multilingual lyric subtitle studio with AI audio alignment, dynamic translation layers, and SRT export.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
