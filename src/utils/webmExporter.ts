@@ -1,5 +1,5 @@
 import { SubtitleProject, SubtitleSegment } from '../types/subtitle';
-import { formatQuranVerseSymbol } from './languages';
+import { formatQuranVerseSymbol, isRtlLanguage } from './languages';
 
 export interface WebMExportOptions {
   aspectRatio: '16:9' | '9:16';
@@ -55,6 +55,81 @@ function drawImageCover(
   }
 
   ctx.drawImage(img, offsetX, offsetY, renderWidth, renderHeight);
+}
+
+/**
+ * Resolves font family for canvas rendering based on user settings and content type
+ */
+function resolveFontFamily(fontKey: string, isOriginal: boolean, isRtl: boolean): string {
+  if (fontKey === 'font-arabic') {
+    return "'Amiri', 'Traditional Arabic', 'Scheherazade New', 'Noto Naskh Arabic', serif";
+  }
+  if (fontKey === 'font-arabic-sans') {
+    return "'Noto Sans Arabic', 'Plus Jakarta Sans', system-ui, sans-serif";
+  }
+  if (fontKey === 'font-cinematic') {
+    return "'Cinzel', 'Plus Jakarta Sans', serif";
+  }
+  if (isRtl) {
+    return "'Amiri', 'Noto Naskh Arabic', serif";
+  }
+  return "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif";
+}
+
+/**
+ * Wraps text into multiple lines so that no line exceeds maxWidth.
+ * Respects existing newline characters and splits by whitespace or punctuation.
+ */
+function wrapTextLines(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number
+): string[] {
+  if (!text) return [];
+
+  // Support explicit user newlines first
+  const explicitParagraphs = text.split('\n');
+  const finalLines: string[] = [];
+
+  for (const para of explicitParagraphs) {
+    const trimmed = para.trim();
+    if (!trimmed) continue;
+
+    // Check if the whole paragraph already fits
+    if (ctx.measureText(trimmed).width <= maxWidth) {
+      finalLines.push(trimmed);
+      continue;
+    }
+
+    // Split into tokens (words)
+    const words = trimmed.split(/\s+/);
+    let currentLine = '';
+
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      const testWidth = ctx.measureText(testLine).width;
+
+      if (testWidth <= maxWidth) {
+        currentLine = testLine;
+      } else {
+        if (currentLine) {
+          finalLines.push(currentLine);
+          currentLine = word;
+        } else {
+          // Single word is wider than maxWidth, break characters if needed
+          finalLines.push(word);
+          currentLine = '';
+        }
+      }
+    }
+
+    if (currentLine) {
+      finalLines.push(currentLine);
+    }
+  }
+
+  return finalLines;
 }
 
 /**
@@ -232,25 +307,18 @@ export async function renderProjectToWebM(
 
     // Scaling factors based on 1080p canvas
     const baseScale = width / 1920;
-    const origFontSize = Math.round((settings.originalFontSize || 44) * (aspectRatio === '9:16' ? 1.6 : 1.35) * baseScale);
-    const transFontSize = Math.round((settings.translationFontSize || 22) * (aspectRatio === '9:16' ? 1.5 : 1.3) * baseScale);
+    let origFontSize = Math.round(
+      (settings.originalFontSize || 44) * (aspectRatio === '9:16' ? 1.45 : 1.25) * baseScale
+    );
+    let transFontSize = Math.round(
+      (settings.translationFontSize || 22) * (aspectRatio === '9:16' ? 1.4 : 1.18) * baseScale
+    );
 
-    // Compute Vertical Center
-    let centerY = height * 0.75; // Default lower third
-    if (settings.position === 'center') {
-      centerY = height * 0.5;
-    } else if (settings.position === 'top') {
-      centerY = height * 0.25;
-    }
+    // Title Safe Area Width:
+    // 16:9 gets max 80% screen width, 9:16 (vertical reels/shorts) gets 86% screen width
+    const maxSafeWidth = width * (aspectRatio === '9:16' ? 0.86 : 0.80);
 
-    // Font Families
-    const arabicFont = "'Amiri', 'Traditional Arabic', 'Scheherazade New', 'Noto Naskh Arabic', serif";
-    const latinFont = "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif";
-
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    // Original Text (Arabic / Primary)
+    // Original Text (Primary)
     let origText = activeSegment.original || '';
     if (settings.showVerseNumber && activeSegment.verseNumber) {
       origText += ' ' + formatQuranVerseSymbol(activeSegment.verseNumber);
@@ -260,19 +328,72 @@ export async function renderProjectToWebM(
     const currentTransLang = settings.selectedTranslationLanguage || 'id';
     const transText = activeSegment.translations?.[currentTransLang] || '';
 
-    // Calculate layout heights
-    const lineSpacing = (settings.lineSpacing || 14) * baseScale;
-    let origY = centerY;
-    let transY = centerY;
+    // RTL & Font detection
+    const isOrigRtl = isRtlLanguage(project.originalLanguage || 'auto', origText);
+    const resolvedOrigFont = resolveFontFamily(settings.originalFont, true, isOrigRtl);
+    const resolvedTransFont = resolveFontFamily(settings.translationFont, false, false);
 
-    if (isBilingual && showOriginal && showTranslation && transText) {
-      origY = centerY - (origFontSize * 0.7);
-      transY = centerY + (transFontSize * 0.8) + lineSpacing;
+    // Dynamic scale-down if text is extremely long to prevent massive vertical sprawl
+    ctx.font = `${settings.originalWeight || '700'} ${origFontSize}px ${resolvedOrigFont}`;
+    let origLines = wrapTextLines(ctx, origText, maxSafeWidth);
+    if (origLines.length > 3) {
+      origFontSize = Math.round(origFontSize * 0.85);
+      ctx.font = `${settings.originalWeight || '700'} ${origFontSize}px ${resolvedOrigFont}`;
+      origLines = wrapTextLines(ctx, origText, maxSafeWidth);
     }
 
-    // Shadow & Outline setup
-    const applyShadowAndOutline = (textColor: string, isArabic: boolean) => {
-      ctx.fillStyle = textColor;
+    ctx.font = `${settings.translationWeight || '600'} ${transFontSize}px ${resolvedTransFont}`;
+    let transLines = wrapTextLines(ctx, transText, maxSafeWidth);
+    if (transLines.length > 3) {
+      transFontSize = Math.round(transFontSize * 0.85);
+      ctx.font = `${settings.translationWeight || '600'} ${transFontSize}px ${resolvedTransFont}`;
+      transLines = wrapTextLines(ctx, transText, maxSafeWidth);
+    }
+
+    // Line heights and gaps
+    const origLineHeight = origFontSize * 1.32;
+    const transLineHeight = transFontSize * 1.36;
+    const blockGap = (settings.lineSpacing || 14) * baseScale * 1.25;
+
+    const origBlockHeight = showOriginal && origLines.length > 0 ? origLines.length * origLineHeight : 0;
+    const transBlockHeight = showTranslation && transLines.length > 0 ? transLines.length * transLineHeight : 0;
+    const totalBlockHeight =
+      origBlockHeight +
+      transBlockHeight +
+      (origBlockHeight > 0 && transBlockHeight > 0 ? blockGap : 0);
+
+    // Horizontal Alignment & Anchor X
+    let anchorX = width / 2;
+    let textAlign: CanvasTextAlign = 'center';
+
+    if (settings.alignment === 'left') {
+      anchorX = (width - maxSafeWidth) / 2;
+      textAlign = 'left';
+    } else if (settings.alignment === 'right') {
+      anchorX = width - (width - maxSafeWidth) / 2;
+      textAlign = 'right';
+    } else {
+      anchorX = width / 2;
+      textAlign = 'center';
+    }
+
+    ctx.textAlign = textAlign;
+    ctx.textBaseline = 'middle';
+
+    // Compute Vertical Anchor Y
+    let startY: number;
+    if (settings.position === 'top') {
+      startY = height * (aspectRatio === '9:16' ? 0.14 : 0.12);
+    } else if (settings.position === 'center') {
+      startY = (height - totalBlockHeight) / 2;
+    } else {
+      // bottom / lower third
+      const bottomPadding = height * (aspectRatio === '9:16' ? 0.15 : 0.12);
+      startY = height - bottomPadding - totalBlockHeight;
+    }
+
+    // Shadow & Outline setup helper
+    const setupShadow = () => {
       if (settings.shadow) {
         ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
         ctx.shadowBlur = 12 * baseScale;
@@ -281,35 +402,59 @@ export async function renderProjectToWebM(
       } else {
         ctx.shadowColor = 'transparent';
         ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
       }
     };
 
-    // Draw Original
-    if (showOriginal && origText) {
-      ctx.font = `${settings.originalWeight || '700'} ${origFontSize}px ${arabicFont}`;
-      applyShadowAndOutline(settings.originalColor || '#FFFFFF', true);
+    let currentY = startY;
 
-      // Text Stroke Outline
-      if (settings.outline) {
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
-        ctx.lineWidth = 4 * baseScale;
-        ctx.strokeText(origText, width / 2, origY);
+    // 1. Draw Wrapped Original Text
+    if (showOriginal && origLines.length > 0) {
+      ctx.font = `${settings.originalWeight || '700'} ${origFontSize}px ${resolvedOrigFont}`;
+      ctx.fillStyle = settings.originalColor || '#FFFFFF';
+
+      for (const line of origLines) {
+        const lineCenterY = currentY + origLineHeight / 2;
+
+        setupShadow();
+
+        // Outline Stroke
+        if (settings.outline) {
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+          ctx.lineWidth = Math.max(3, 4.5 * baseScale);
+          ctx.strokeText(line, anchorX, lineCenterY);
+        }
+
+        ctx.fillText(line, anchorX, lineCenterY);
+        currentY += origLineHeight;
       }
-      ctx.fillText(origText, width / 2, origY);
+
+      if (transBlockHeight > 0) {
+        currentY += blockGap;
+      }
     }
 
-    // Draw Translation
-    if (showTranslation && transText) {
-      ctx.font = `${settings.translationWeight || '600'} ${transFontSize}px ${latinFont}`;
-      applyShadowAndOutline(settings.translationColor || '#E6C86A', false);
+    // 2. Draw Wrapped Translation Text
+    if (showTranslation && transLines.length > 0) {
+      ctx.font = `${settings.translationWeight || '600'} ${transFontSize}px ${resolvedTransFont}`;
+      ctx.fillStyle = settings.translationColor || '#E6C86A';
 
-      // Text Stroke Outline
-      if (settings.outline) {
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
-        ctx.lineWidth = 3 * baseScale;
-        ctx.strokeText(transText, width / 2, transY);
+      for (const line of transLines) {
+        const lineCenterY = currentY + transLineHeight / 2;
+
+        setupShadow();
+
+        // Outline Stroke
+        if (settings.outline) {
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.88)';
+          ctx.lineWidth = Math.max(2.5, 3.5 * baseScale);
+          ctx.strokeText(line, anchorX, lineCenterY);
+        }
+
+        ctx.fillText(line, anchorX, lineCenterY);
+        currentY += transLineHeight;
       }
-      ctx.fillText(transText, width / 2, transY);
     }
   };
 
