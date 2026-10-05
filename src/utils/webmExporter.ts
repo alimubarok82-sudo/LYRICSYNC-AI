@@ -364,8 +364,9 @@ export async function renderProjectToWebM(
     const showOriginal = settings.displayMode !== 'translation';
     const showTranslation = settings.displayMode !== 'original';
 
-    // Scaling factors based on 1080p canvas
-    const baseScale = width / 1920;
+    // Scaling factors based on 1080p canvas and custom scale multiplier
+    const userScale = typeof settings.scale === 'number' ? settings.scale : 1.0;
+    const baseScale = (width / 1920) * userScale;
     let origFontSize = Math.round(
       (settings.originalFontSize || 44) * (aspectRatio === '9:16' ? 1.45 : 1.25) * baseScale
     );
@@ -425,7 +426,11 @@ export async function renderProjectToWebM(
     let anchorX = width / 2;
     let textAlign: CanvasTextAlign = 'center';
 
-    if (settings.alignment === 'left') {
+    if (typeof settings.customPositionX === 'number') {
+      const clampedPctX = Math.max(10, Math.min(90, settings.customPositionX));
+      anchorX = (width * clampedPctX) / 100;
+      textAlign = 'center';
+    } else if (settings.alignment === 'left') {
       anchorX = (width - maxSafeWidth) / 2;
       textAlign = 'left';
     } else if (settings.alignment === 'right') {

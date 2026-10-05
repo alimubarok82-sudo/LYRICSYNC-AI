@@ -248,39 +248,97 @@ export const StyleSettingsModal: React.FC<StyleSettingsModalProps> = ({
                 </div>
               </div>
 
-              {/* Horizontal Alignment */}
+              {/* Horizontal Alignment & Position */}
               <div className="bg-neutral-950 p-2.5 rounded-xl border border-neutral-800 space-y-1.5">
-                <label className="text-neutral-400 block">Text Alignment</label>
+                <div className="flex items-center justify-between text-neutral-400">
+                  <label>Horizontal (X)</label>
+                  {typeof settings.customPositionX === 'number' && (
+                    <span className="text-[10px] text-amber-400 font-mono">
+                      {settings.customPositionX}%
+                    </span>
+                  )}
+                </div>
                 <div className="flex bg-neutral-900 rounded-lg p-0.5 border border-neutral-800 text-[11px]">
-                  {(['left', 'center', 'right'] as const).map((align) => (
-                    <button
-                      key={align}
-                      onClick={() => onUpdateSettings({ alignment: align })}
-                      className={`flex-1 py-1 rounded capitalize transition ${
-                        settings.alignment === align
-                          ? 'bg-amber-500 text-neutral-950 font-bold'
-                          : 'text-neutral-400 hover:text-white'
-                      }`}
-                    >
-                      {align}
-                    </button>
-                  ))}
+                  {(['left', 'center', 'right'] as const).map((align) => {
+                    const targetX = align === 'left' ? 25 : align === 'center' ? 50 : 75;
+                    return (
+                      <button
+                        key={align}
+                        onClick={() => onUpdateSettings({ alignment: align, customPositionX: targetX })}
+                        className={`flex-1 py-1 rounded capitalize transition ${
+                          settings.alignment === align &&
+                          (settings.customPositionX === undefined || settings.customPositionX === targetX)
+                            ? 'bg-amber-500 text-neutral-950 font-bold'
+                            : 'text-neutral-400 hover:text-white'
+                        }`}
+                      >
+                        {align}
+                      </button>
+                    );
+                  })}
+                </div>
+                {/* Horizontal Slider */}
+                <div className="pt-1">
+                  <input
+                    type="range"
+                    min={15}
+                    max={85}
+                    value={
+                      typeof settings.customPositionX === 'number'
+                        ? settings.customPositionX
+                        : settings.alignment === 'left'
+                        ? 25
+                        : settings.alignment === 'right'
+                        ? 75
+                        : 50
+                    }
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      onUpdateSettings({
+                        customPositionX: val,
+                        alignment: val < 35 ? 'left' : val > 65 ? 'right' : 'center',
+                      });
+                    }}
+                    className="w-full h-1.5 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-amber-400"
+                    title="Geser posisi horizontal (kiri - tengah - kanan) secara presisi"
+                  />
                 </div>
               </div>
 
-              {/* Line Spacing */}
-              <div className="bg-neutral-950 p-2.5 rounded-xl border border-neutral-800 space-y-1.5">
-                <label className="text-neutral-400 block">Line Gap ({settings.lineSpacing}px)</label>
+              {/* Ukuran Skala Lirik & Line Spacing */}
+              <div className="bg-neutral-950 p-2.5 rounded-xl border border-neutral-800 space-y-2">
+                <div className="flex items-center justify-between text-neutral-400">
+                  <label>Skala Ukuran Lirik</label>
+                  <span className="text-[10px] text-amber-400 font-mono font-bold">
+                    {Math.round((settings.scale || 1.0) * 100)}%
+                  </span>
+                </div>
                 <input
                   type="range"
-                  min={4}
-                  max={32}
-                  value={settings.lineSpacing}
-                  onChange={(e) =>
-                    onUpdateSettings({ lineSpacing: parseInt(e.target.value, 10) })
-                  }
-                  className="w-full accent-amber-500 cursor-pointer"
+                  min={50}
+                  max={200}
+                  step={5}
+                  value={Math.round((settings.scale || 1.0) * 100)}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10) / 100;
+                    onUpdateSettings({ scale: val });
+                  }}
+                  className="w-full h-1.5 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-amber-400"
                 />
+
+                <div className="flex items-center justify-between text-neutral-400 pt-1 border-t border-neutral-900">
+                  <label className="text-[11px]">Jarak Baris ({settings.lineSpacing}px)</label>
+                  <input
+                    type="range"
+                    min={4}
+                    max={32}
+                    value={settings.lineSpacing}
+                    onChange={(e) =>
+                      onUpdateSettings({ lineSpacing: parseInt(e.target.value, 10) })
+                    }
+                    className="w-24 accent-amber-500 cursor-pointer"
+                  />
+                </div>
               </div>
             </div>
           </div>
