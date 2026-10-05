@@ -326,19 +326,37 @@ export default function App() {
     );
   };
 
-  // Audio upload handler: loads audio for playback & timeline without auto-generating subtitles
+  // Audio/Video upload handler: loads media for playback & timeline and automatically detects video backdrops
   const handleAudioUpload = async (file: File) => {
     try {
       const url = URL.createObjectURL(file);
+      const isVideo =
+        file.type.startsWith('video/') ||
+        file.name.endsWith('.mp4') ||
+        file.name.endsWith('.webm') ||
+        file.name.endsWith('.mov') ||
+        file.name.endsWith('.mkv');
+
       setProject((prev) => ({
         ...prev,
         audioUrl: url,
         audioFileName: file.name,
+        videoUrl: isVideo ? url : prev.videoUrl,
+        videoFileName: isVideo ? file.name : prev.videoFileName,
+        settings: {
+          ...prev.settings,
+          backgroundVideoUrl: isVideo ? url : prev.settings.backgroundVideoUrl,
+        },
       }));
-      showToast(`Audio berhasil dimuat: ${file.name}`);
+
+      if (isVideo) {
+        showToast(`Video dimuat: ${file.name}. Audio dan latar video aktif!`);
+      } else {
+        showToast(`Audio berhasil dimuat: ${file.name}`);
+      }
     } catch (err: any) {
       console.error(err);
-      showToast(err.message || 'Gagal memuat audio');
+      showToast(err.message || 'Gagal memuat media');
     }
   };
 
@@ -689,6 +707,7 @@ export default function App() {
           settings={project.settings}
           availableTranslations={project.availableTranslations}
           originalLanguage={project.originalLanguage}
+          videoUrl={project.videoUrl}
           onUpdateSettings={(updates) =>
             setProject((prev) => ({
               ...prev,

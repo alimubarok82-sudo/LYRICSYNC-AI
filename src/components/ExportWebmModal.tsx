@@ -13,6 +13,7 @@ import {
   Volume2,
   VolumeX,
   Image as ImageIcon,
+  Film,
 } from 'lucide-react';
 import { SubtitleProject } from '../types/subtitle';
 import { renderProjectToWebM, WebMRenderResult } from '../utils/webmExporter';
@@ -28,23 +29,30 @@ export const ExportWebmModal: React.FC<ExportWebmModalProps> = ({
   onClose,
   project,
 }) => {
+  const hasBackdropVideo = Boolean(
+    project.settings.backgroundVideoUrl ||
+    project.videoUrl ||
+    (project.audioUrl && (project.audioFileName?.endsWith('.mp4') || project.audioFileName?.endsWith('.webm')))
+  );
   const hasBackdropImage = Boolean(project.settings.backgroundImageUrl);
 
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>(
     project.settings.aspectRatio === '9:16' ? '9:16' : '16:9'
   );
   const [quality, setQuality] = useState<'1080p' | '720p'>('1080p');
-  const [backgroundStyle, setBackgroundStyle] = useState<'image' | 'black' | 'dark' | 'transparent'>(
-    hasBackdropImage ? 'image' : 'black'
+  const [backgroundStyle, setBackgroundStyle] = useState<'video' | 'image' | 'black' | 'dark' | 'transparent'>(
+    hasBackdropVideo ? 'video' : hasBackdropImage ? 'image' : 'black'
   );
   const [includeAudio, setIncludeAudio] = useState(true);
 
-  // Auto-sync backgroundStyle if user previously uploaded backdrop image
+  // Auto-sync backgroundStyle if video or image is present
   useEffect(() => {
-    if (project.settings.backgroundImageUrl) {
+    if (hasBackdropVideo) {
+      setBackgroundStyle('video');
+    } else if (project.settings.backgroundImageUrl) {
       setBackgroundStyle('image');
     }
-  }, [project.settings.backgroundImageUrl, isOpen]);
+  }, [hasBackdropVideo, project.settings.backgroundImageUrl, isOpen]);
 
   const [isRendering, setIsRendering] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -62,11 +70,19 @@ export const ExportWebmModal: React.FC<ExportWebmModalProps> = ({
     setErrorMessage(null);
 
     try {
+      const effectiveVideoUrl =
+        project.settings.backgroundVideoUrl ||
+        project.videoUrl ||
+        (project.audioUrl && (project.audioFileName?.endsWith('.mp4') || project.audioFileName?.endsWith('.webm'))
+          ? project.audioUrl
+          : null);
+
       const result = await renderProjectToWebM(project, {
         aspectRatio,
         quality,
         backgroundStyle,
         backgroundImageUrl: project.settings.backgroundImageUrl,
+        backgroundVideoUrl: effectiveVideoUrl,
         includeAudio,
         onProgress: (pct, text) => {
           setProgress(pct);
@@ -203,11 +219,15 @@ export const ExportWebmModal: React.FC<ExportWebmModalProps> = ({
               <div>
                 <label className="block text-xs font-semibold text-neutral-300 mb-1.5 flex items-center justify-between">
                   <span>Latar Belakang Video:</span>
-                  {hasBackdropImage && (
+                  {hasBackdropVideo ? (
+                    <span className="text-[10px] text-amber-400 font-medium flex items-center gap-1">
+                      <Film className="w-3 h-3" /> Video Aktif
+                    </span>
+                  ) : hasBackdropImage ? (
                     <span className="text-[10px] text-amber-400 font-medium flex items-center gap-1">
                       <ImageIcon className="w-3 h-3" /> Image Aktif
                     </span>
-                  )}
+                  ) : null}
                 </label>
                 <select
                   value={backgroundStyle}
@@ -215,6 +235,9 @@ export const ExportWebmModal: React.FC<ExportWebmModalProps> = ({
                   disabled={isRendering}
                   className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-1.5 text-xs text-neutral-200 focus:outline-none focus:border-amber-500"
                 >
+                  {hasBackdropVideo && (
+                    <option value="video">Video Klip Latar (MP4 / WebM Motion Video)</option>
+                  )}
                   {hasBackdropImage && (
                     <option value="image">Gambar Backdrop (Uploaded Image)</option>
                   )}
@@ -224,6 +247,23 @@ export const ExportWebmModal: React.FC<ExportWebmModalProps> = ({
                 </select>
               </div>
             </div>
+
+            {/* Backdrop Video Preview Banner if available */}
+            {hasBackdropVideo && backgroundStyle === 'video' && (
+              <div className="flex items-center gap-3 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs">
+                <div className="w-10 h-10 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shrink-0">
+                  <Film className="w-5 h-5 text-amber-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-amber-300 font-semibold truncate">
+                    Video Latar Belakang Bergerak Aktif
+                  </div>
+                  <div className="text-[11px] text-neutral-400">
+                    Video klip ({project.videoFileName || project.audioFileName || 'Video Klip'}) akan diputar sinkron di latar belakang teks subtitle.
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Backdrop Image Preview Banner if available */}
             {hasBackdropImage && backgroundStyle === 'image' && (

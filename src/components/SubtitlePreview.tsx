@@ -26,6 +26,7 @@ interface SubtitlePreviewProps {
   settings: SubtitleStyleSettings;
   availableTranslations: string[];
   originalLanguage: string;
+  videoUrl?: string;
   onUpdateSettings: (settings: Partial<SubtitleStyleSettings>) => void;
   onSelectSegment?: (segmentId: number) => void;
   onExportWebm?: () => void;
@@ -37,12 +38,26 @@ export const SubtitlePreview: React.FC<SubtitlePreviewProps> = ({
   settings,
   availableTranslations,
   originalLanguage,
+  videoUrl,
   onUpdateSettings,
   onSelectSegment,
   onExportWebm,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const previewVideoRef = useRef<HTMLVideoElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Sync background video time with timeline
+  const effectiveVideoUrl = settings.backgroundVideoUrl || videoUrl;
+
+  React.useEffect(() => {
+    const video = previewVideoRef.current;
+    if (!video || !effectiveVideoUrl) return;
+
+    if (Math.abs(video.currentTime - currentTime) > 0.3) {
+      video.currentTime = currentTime % (video.duration || 9999);
+    }
+  }, [currentTime, effectiveVideoUrl]);
 
   // Find active segment for currentTime
   const activeSegment = segments.find(
@@ -281,13 +296,28 @@ export const SubtitlePreview: React.FC<SubtitlePreviewProps> = ({
       <div className="w-full flex items-center justify-center p-2 sm:p-4 bg-neutral-950">
         <div
           ref={containerRef}
-          style={getBgStyle()}
+          style={effectiveVideoUrl ? undefined : getBgStyle()}
           className={`relative w-full max-w-4xl rounded-xl overflow-hidden transition-all duration-300 flex flex-col ${getVerticalPlacementClass()} ${
             settings.aspectRatio === '9:16'
               ? 'aspect-[9/16] max-w-xs mx-auto'
               : 'aspect-video'
           } select-none shadow-2xl border border-neutral-800/80`}
         >
+          {/* Active Background Video Layer */}
+          {effectiveVideoUrl && (
+            <>
+              <video
+                ref={previewVideoRef}
+                src={effectiveVideoUrl}
+                muted
+                playsInline
+                loop
+                className="absolute inset-0 w-full h-full object-cover pointer-events-none z-0"
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/40 to-black/75 pointer-events-none z-0" />
+            </>
+          )}
+
           {/* Safe Area Subtitle Container */}
           <div
             className={`w-full subtitle-safe-area flex flex-col ${getHorizontalAlignmentClass()} z-10`}

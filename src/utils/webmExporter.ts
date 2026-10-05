@@ -4,8 +4,9 @@ import { formatQuranVerseSymbol, isRtlLanguage } from './languages';
 export interface WebMExportOptions {
   aspectRatio: '16:9' | '9:16';
   quality: '1080p' | '720p';
-  backgroundStyle: 'image' | 'black' | 'dark' | 'transparent';
+  backgroundStyle: 'video' | 'image' | 'black' | 'dark' | 'transparent';
   backgroundImageUrl?: string | null;
+  backgroundVideoUrl?: string | null;
   includeAudio: boolean;
   onProgress?: (progress: number, statusText: string) => void;
 }
@@ -31,30 +32,51 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 /**
- * Draws an image with object-fit: cover into canvas context.
+ * Loads and prepares an HTMLVideoElement for canvas frame drawing
  */
-function drawImageCover(
+function loadVideo(src: string): Promise<HTMLVideoElement> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.crossOrigin = 'anonymous';
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'auto';
+    video.onloadeddata = () => resolve(video);
+    video.onerror = (e) => reject(new Error('Gagal memuat file video latar: ' + e));
+    video.src = src;
+    video.load();
+  });
+}
+
+/**
+ * Draws an image or video frame with object-fit: cover into canvas context.
+ */
+function drawMediaCover(
   ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
+  media: HTMLImageElement | HTMLVideoElement,
   targetWidth: number,
   targetHeight: number
 ) {
-  const imgRatio = img.width / img.height;
+  const mediaWidth = 'videoWidth' in media && media.videoWidth ? media.videoWidth : media.width;
+  const mediaHeight = 'videoHeight' in media && media.videoHeight ? media.videoHeight : media.height;
+  if (!mediaWidth || !mediaHeight) return;
+
+  const mediaRatio = mediaWidth / mediaHeight;
   const targetRatio = targetWidth / targetHeight;
   let renderWidth = targetWidth;
   let renderHeight = targetHeight;
   let offsetX = 0;
   let offsetY = 0;
 
-  if (imgRatio > targetRatio) {
-    renderWidth = targetHeight * imgRatio;
+  if (mediaRatio > targetRatio) {
+    renderWidth = targetHeight * mediaRatio;
     offsetX = (targetWidth - renderWidth) / 2;
   } else {
-    renderHeight = targetWidth / imgRatio;
+    renderHeight = targetWidth / mediaRatio;
     offsetY = (targetHeight - renderHeight) / 2;
   }
 
-  ctx.drawImage(img, offsetX, offsetY, renderWidth, renderHeight);
+  ctx.drawImage(media, offsetX, offsetY, renderWidth, renderHeight);
 }
 
 /**
@@ -144,6 +166,7 @@ export async function renderProjectToWebM(
     quality = '1080p',
     backgroundStyle = 'black',
     backgroundImageUrl = project.settings.backgroundImageUrl,
+    backgroundVideoUrl = project.settings.backgroundVideoUrl,
     includeAudio = true,
     onProgress,
   } = options;
@@ -251,11 +274,34 @@ export async function renderProjectToWebM(
     }
   };
 
-  // Preload background image if selected or present
+  // Preload background video or image if selected or present
   let loadedBgImage: HTMLImageElement | null = null;
-  const effectiveBgUrl = backgroundImageUrl || (backgroundStyle === 'image' ? project.settings.backgroundImageUrl : null);
+  let loadedBgVideo: HTMLVideoElement | null = null;
 
-  if ((backgroundStyle === 'image' || effectiveBgUrl) && backgroundStyle !== 'transparent') {
+  const effectiveVideoUrl =
+    backgroundVideoUrl ||
+    project.settings.backgroundVideoUrl ||
+    project.videoUrl ||
+    (project.audioUrl && (project.audioFileName?.endsWith('.mp4') || project.audioFileName?.endsWith('.webm'))
+      ? project.audioUrl
+      : null);
+
+  const effectiveBgUrl =
+    backgroundImageUrl ||
+    (backgroundStyle === 'image' ? project.settings.backgroundImageUrl : null);
+
+  if (backgroundStyle === 'video' || (effectiveVideoUrl && backgroundStyle !== 'black' && backgroundStyle !== 'dark' && backgroundStyle !== 'transparent' && !effectiveBgUrl)) {
+    if (effectiveVideoUrl) {
+      try {
+        onProgress?.(3, 'Memuat trek video latar belakang...');
+        loadedBgVideo = await loadVideo(effectiveVideoUrl);
+      } catch (err) {
+        console.warn('Gagal memuat video backdrop, beralih ke gambar/warna:', err);
+      }
+    }
+  }
+
+  if (!loadedBgVideo && (backgroundStyle === 'image' || effectiveBgUrl) && backgroundStyle !== 'transparent') {
     if (effectiveBgUrl) {
       try {
         onProgress?.(3, 'Memuat gambar latar backdrop...');
@@ -271,9 +317,22 @@ export async function renderProjectToWebM(
     // 1. Draw Background
     if (backgroundStyle === 'transparent') {
       ctx.clearRect(0, 0, width, height);
+    } else if (loadedBgVideo) {
+      // Sync background video frame to timeline
+      if (Math.abs(loadedBgVideo.currentTime - currentTimeSec) > 0.05) {
+        loadedBgVideo.currentTime = currentTimeSec % (loadedBgVideo.duration || 9999);
+      }
+      drawMediaCover(ctx, loadedBgVideo, width, height);
+
+      // Add cinematic dark overlay to maintain subtitle legibility
+      const overlayGradient = ctx.createLinearGradient(0, 0, 0, height);
+      overlayGradient.addColorStop(0, 'rgba(0, 0, 0, 0.50)');
+      overlayGradient.addColorStop(1, 'rgba(0, 0, 0, 0.70)');
+      ctx.fillStyle = overlayGradient;
+      ctx.fillRect(0, 0, width, height);
     } else if (loadedBgImage) {
       // Draw background image scaled cover
-      drawImageCover(ctx, loadedBgImage, width, height);
+      drawMediaCover(ctx, loadedBgImage, width, height);
 
       // Add cinematic dark overlay to maintain subtitle legibility (as in preview)
       const overlayGradient = ctx.createLinearGradient(0, 0, 0, height);

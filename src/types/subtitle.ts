@@ -36,6 +36,7 @@ export interface SubtitleStyleSettings {
   backgroundColor: 'black' | 'dark' | 'transparent' | 'custom';
   customBgColor?: string;
   backgroundImageUrl?: string | null;
+  backgroundVideoUrl?: string | null;
   showVerseNumber: boolean;
   aspectRatio: '16:9' | '9:16' | 'cinema';
 }
@@ -49,6 +50,8 @@ export interface SubtitleProject {
   audioDuration: number;
   audioFileName?: string;
   audioUrl?: string;
+  videoUrl?: string;
+  videoFileName?: string;
   segments: SubtitleSegment[];
   settings: SubtitleStyleSettings;
   updatedAt: number;

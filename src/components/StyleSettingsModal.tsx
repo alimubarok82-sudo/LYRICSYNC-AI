@@ -5,6 +5,7 @@ import {
   Type,
   Palette,
   Image as ImageIcon,
+  Film,
   AlignLeft,
   AlignCenter,
   AlignRight,
@@ -26,6 +27,7 @@ export const StyleSettingsModal: React.FC<StyleSettingsModalProps> = ({
   onUpdateSettings,
 }) => {
   const bgFileInputRef = useRef<HTMLInputElement>(null);
+  const bgVideoInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
@@ -33,12 +35,24 @@ export const StyleSettingsModal: React.FC<StyleSettingsModalProps> = ({
     const file = e.target.files?.[0];
     if (file) {
       const url = URL.createObjectURL(file);
-      onUpdateSettings({ backgroundImageUrl: url });
+      onUpdateSettings({ backgroundImageUrl: url, backgroundVideoUrl: null });
     }
   };
 
   const removeBgImage = () => {
     onUpdateSettings({ backgroundImageUrl: null });
+  };
+
+  const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      onUpdateSettings({ backgroundVideoUrl: url, backgroundImageUrl: null });
+    }
+  };
+
+  const removeBgVideo = () => {
+    onUpdateSettings({ backgroundVideoUrl: null });
   };
 
   return (
@@ -282,9 +296,9 @@ export const StyleSettingsModal: React.FC<StyleSettingsModalProps> = ({
                   {(['black', 'dark', 'transparent'] as const).map((bg) => (
                     <button
                       key={bg}
-                      onClick={() => onUpdateSettings({ backgroundColor: bg, backgroundImageUrl: null })}
+                      onClick={() => onUpdateSettings({ backgroundColor: bg, backgroundImageUrl: null, backgroundVideoUrl: null })}
                       className={`px-2.5 py-1 rounded text-xs capitalize transition ${
-                        settings.backgroundColor === bg && !settings.backgroundImageUrl
+                        settings.backgroundColor === bg && !settings.backgroundImageUrl && !settings.backgroundVideoUrl
                           ? 'bg-amber-500 text-neutral-950 font-bold'
                           : 'bg-neutral-900 text-neutral-300 border border-neutral-800 hover:text-white'
                       }`}
@@ -294,27 +308,54 @@ export const StyleSettingsModal: React.FC<StyleSettingsModalProps> = ({
                   ))}
                 </div>
 
-                <div className="pt-1 flex items-center gap-2">
+                <div className="pt-1 flex flex-wrap items-center gap-2">
+                  {/* Upload Image Backdrop */}
                   <button
                     onClick={() => bgFileInputRef.current?.click()}
                     className="flex items-center gap-1 px-2.5 py-1 rounded bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800 text-xs transition"
                   >
                     <ImageIcon className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Upload Image Backdrop</span>
+                    <span>Upload Image</span>
                   </button>
                   {settings.backgroundImageUrl && (
                     <button
                       onClick={removeBgImage}
                       className="text-red-400 hover:underline text-[11px]"
                     >
-                      Remove
+                      Hapus Image
                     </button>
                   )}
+
+                  {/* Upload Video Backdrop (MP4/WebM) */}
+                  <button
+                    onClick={() => bgVideoInputRef.current?.click()}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800 text-xs transition"
+                    title="Upload video klip bergerak MP4/WebM sebagai latar belakang"
+                  >
+                    <Film className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Upload Video (MP4/WebM)</span>
+                  </button>
+                  {settings.backgroundVideoUrl && (
+                    <button
+                      onClick={removeBgVideo}
+                      className="text-red-400 hover:underline text-[11px]"
+                    >
+                      Hapus Video
+                    </button>
+                  )}
+
                   <input
                     ref={bgFileInputRef}
                     type="file"
                     accept="image/*"
                     onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                  <input
+                    ref={bgVideoInputRef}
+                    type="file"
+                    accept="video/*,.mp4,.webm,.mov,.mkv"
+                    onChange={handleVideoUpload}
                     className="hidden"
                   />
                 </div>

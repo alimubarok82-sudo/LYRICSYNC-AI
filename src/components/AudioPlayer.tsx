@@ -9,6 +9,7 @@ import {
   UploadCloud,
   Repeat,
   Sparkles,
+  Film,
 } from 'lucide-react';
 import { SubtitleSegment } from '../types/subtitle';
 import { formatPlayerTime } from '../utils/srt';
@@ -304,11 +305,11 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         onEnded={() => setIsPlaying(false)}
       />
 
-      {/* Hidden file input for audio */}
+      {/* Hidden file input for audio / video */}
       <input
         ref={fileInputRef}
         type="file"
-        accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg"
+        accept="audio/*,video/*,.mp3,.wav,.m4a,.aac,.ogg,.mp4,.webm,.mkv,.mov"
         onChange={handleFileChange}
         className="hidden"
       />
@@ -319,12 +320,17 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           <button
             onClick={() => fileInputRef.current?.click()}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition"
+            title="Upload file Audio (MP3, WAV) atau Video (MP4, WebM)"
           >
-            <UploadCloud className="w-3.5 h-3.5 text-amber-400" />
-            <span>Upload Audio (MP3/WAV)</span>
+            {audioFileName && (audioFileName.endsWith('.mp4') || audioFileName.endsWith('.webm') || audioFileName.endsWith('.mkv') || audioFileName.endsWith('.mov')) ? (
+              <Film className="w-3.5 h-3.5 text-amber-400" />
+            ) : (
+              <UploadCloud className="w-3.5 h-3.5 text-amber-400" />
+            )}
+            <span>Upload Audio / Video (MP3, MP4, WebM)</span>
           </button>
           <span className="text-neutral-400 truncate max-w-xs" title={audioFileName}>
-            {audioFileName || 'Belum ada file audio'}
+            {audioFileName || 'Belum ada file media'}
           </span>
         </div>
 
