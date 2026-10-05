@@ -49,17 +49,23 @@ function loadVideo(src: string): Promise<HTMLVideoElement> {
 }
 
 /**
- * Draws an image or video frame with object-fit: cover into canvas context.
+ * Draws an image or video frame with object-fit: cover or contain into canvas context.
  */
-function drawMediaCover(
+function drawMediaFrame(
   ctx: CanvasRenderingContext2D,
   media: HTMLImageElement | HTMLVideoElement,
   targetWidth: number,
-  targetHeight: number
+  targetHeight: number,
+  fitMode: 'cover' | 'contain' | 'fill' = 'contain'
 ) {
   const mediaWidth = 'videoWidth' in media && media.videoWidth ? media.videoWidth : media.width;
   const mediaHeight = 'videoHeight' in media && media.videoHeight ? media.videoHeight : media.height;
   if (!mediaWidth || !mediaHeight) return;
+
+  if (fitMode === 'fill') {
+    ctx.drawImage(media, 0, 0, targetWidth, targetHeight);
+    return;
+  }
 
   const mediaRatio = mediaWidth / mediaHeight;
   const targetRatio = targetWidth / targetHeight;
@@ -68,12 +74,25 @@ function drawMediaCover(
   let offsetX = 0;
   let offsetY = 0;
 
-  if (mediaRatio > targetRatio) {
-    renderWidth = targetHeight * mediaRatio;
-    offsetX = (targetWidth - renderWidth) / 2;
+  if (fitMode === 'cover') {
+    if (mediaRatio > targetRatio) {
+      renderWidth = targetHeight * mediaRatio;
+      offsetX = (targetWidth - renderWidth) / 2;
+    } else {
+      renderHeight = targetWidth / mediaRatio;
+      offsetY = (targetHeight - renderHeight) / 2;
+    }
   } else {
-    renderHeight = targetWidth / mediaRatio;
-    offsetY = (targetHeight - renderHeight) / 2;
+    // 'contain' (default): 100% full view, never cuts off watermarks or edges!
+    if (mediaRatio > targetRatio) {
+      renderWidth = targetWidth;
+      renderHeight = targetWidth / mediaRatio;
+      offsetY = (targetHeight - renderHeight) / 2;
+    } else {
+      renderHeight = targetHeight;
+      renderWidth = targetHeight * mediaRatio;
+      offsetX = (targetWidth - renderWidth) / 2;
+    }
   }
 
   ctx.drawImage(media, offsetX, offsetY, renderWidth, renderHeight);
@@ -322,7 +341,8 @@ export async function renderProjectToWebM(
       if (Math.abs(loadedBgVideo.currentTime - currentTimeSec) > 0.05) {
         loadedBgVideo.currentTime = currentTimeSec % (loadedBgVideo.duration || 9999);
       }
-      drawMediaCover(ctx, loadedBgVideo, width, height);
+      const fitMode = project.settings.backdropFit || 'contain';
+      drawMediaFrame(ctx, loadedBgVideo, width, height, fitMode);
 
       // Add cinematic dark overlay to maintain subtitle legibility
       const overlayGradient = ctx.createLinearGradient(0, 0, 0, height);
@@ -331,8 +351,9 @@ export async function renderProjectToWebM(
       ctx.fillStyle = overlayGradient;
       ctx.fillRect(0, 0, width, height);
     } else if (loadedBgImage) {
-      // Draw background image scaled cover
-      drawMediaCover(ctx, loadedBgImage, width, height);
+      // Draw background image scaled
+      const fitMode = project.settings.backdropFit || 'contain';
+      drawMediaFrame(ctx, loadedBgImage, width, height, fitMode);
 
       // Add cinematic dark overlay to maintain subtitle legibility (as in preview)
       const overlayGradient = ctx.createLinearGradient(0, 0, 0, height);

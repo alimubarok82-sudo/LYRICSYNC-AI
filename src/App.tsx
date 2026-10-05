@@ -32,6 +32,8 @@ export default function App() {
   // Initialize project state from localStorage or Demo
   const [project, setProject] = useState<SubtitleProject>(() => loadCurrentProject());
   const [currentTime, setCurrentTime] = useState<number>(0);
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [playbackRate, setPlaybackRate] = useState<number>(1);
   const [isAnalyzingAudio, setIsAnalyzingAudio] = useState<boolean>(false);
   const [isTranslating, setIsTranslating] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -708,6 +710,8 @@ export default function App() {
           availableTranslations={project.availableTranslations}
           originalLanguage={project.originalLanguage}
           videoUrl={project.videoUrl}
+          isPlaying={isPlaying}
+          playbackRate={playbackRate}
           onUpdateSettings={(updates) =>
             setProject((prev) => ({
               ...prev,
@@ -730,6 +734,9 @@ export default function App() {
           duration={project.audioDuration}
           currentTime={currentTime}
           segments={project.segments}
+          isPlaying={isPlaying}
+          onPlayStateChange={(playing) => setIsPlaying(playing)}
+          onRateChange={(rate) => setPlaybackRate(rate)}
           onTimeUpdate={(t) => setCurrentTime(t)}
           onDurationChange={(d) =>
             setProject((prev) => ({ ...prev, audioDuration: d }))

@@ -40,6 +40,7 @@ export interface SubtitleStyleSettings {
   customBgColor?: string;
   backgroundImageUrl?: string | null;
   backgroundVideoUrl?: string | null;
+  backdropFit?: 'cover' | 'contain' | 'fill'; // Default 'contain' to avoid cropping, or 'cover' for full bleed
   showVerseNumber: boolean;
   aspectRatio: '16:9' | '9:16' | 'cinema';
 }

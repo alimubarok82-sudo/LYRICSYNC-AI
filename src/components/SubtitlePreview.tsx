@@ -15,6 +15,8 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
+  Scan,
+  Crop,
 } from 'lucide-react';
 import {
   SubtitleSegment,
@@ -34,6 +36,8 @@ interface SubtitlePreviewProps {
   availableTranslations: string[];
   originalLanguage: string;
   videoUrl?: string;
+  isPlaying?: boolean;
+  playbackRate?: number;
   onUpdateSettings: (settings: Partial<SubtitleStyleSettings>) => void;
   onSelectSegment?: (segmentId: number) => void;
   onExportWebm?: () => void;
@@ -46,6 +50,8 @@ export const SubtitlePreview: React.FC<SubtitlePreviewProps> = ({
   availableTranslations,
   originalLanguage,
   videoUrl,
+  isPlaying,
+  playbackRate = 1,
   onUpdateSettings,
   onSelectSegment,
   onExportWebm,
@@ -63,14 +69,39 @@ export const SubtitlePreview: React.FC<SubtitlePreviewProps> = ({
   // Sync background video time with timeline
   const effectiveVideoUrl = settings.backgroundVideoUrl || videoUrl;
 
+  // 1. Play / Pause & Playback rate synchronization (hardware-accelerated, butter smooth)
   React.useEffect(() => {
     const video = previewVideoRef.current;
     if (!video || !effectiveVideoUrl) return;
 
-    if (Math.abs(video.currentTime - currentTime) > 0.3) {
+    video.playbackRate = playbackRate;
+
+    if (isPlaying) {
+      if (video.paused) {
+        // Match current time right before playing
+        if (Math.abs(video.currentTime - currentTime) > 0.15) {
+          video.currentTime = currentTime % (video.duration || 9999);
+        }
+        video.play().catch(() => {});
+      }
+    } else {
+      if (!video.paused) {
+        video.pause();
+      }
+    }
+  }, [isPlaying, playbackRate, effectiveVideoUrl]);
+
+  // 2. Seek / Scrub synchronization (only correct when drift is noticeable, avoiding frame stutter)
+  React.useEffect(() => {
+    const video = previewVideoRef.current;
+    if (!video || !effectiveVideoUrl) return;
+
+    const drift = Math.abs(video.currentTime - currentTime);
+    // If video is paused or user scrubbed timeline significantly (> 0.25s)
+    if (!isPlaying || drift > 0.35) {
       video.currentTime = currentTime % (video.duration || 9999);
     }
-  }, [currentTime, effectiveVideoUrl]);
+  }, [currentTime, effectiveVideoUrl, isPlaying]);
 
   // Find active segment for currentTime
   const activeSegment = segments.find(
@@ -410,6 +441,36 @@ export const SubtitlePreview: React.FC<SubtitlePreviewProps> = ({
             )}
           </div>
 
+          {/* Backdrop Fit Mode Toggle (Utuh / Full Frame vs Crop / Cover) */}
+          {effectiveVideoUrl && (
+            <div className="flex items-center bg-neutral-900 rounded-lg p-0.5 border border-neutral-800 text-[11px]">
+              <button
+                onClick={() => onUpdateSettings({ backdropFit: 'contain' })}
+                className={`px-2 py-1 rounded flex items-center gap-1 transition ${
+                  (settings.backdropFit || 'contain') === 'contain'
+                    ? 'bg-amber-500 text-neutral-950 font-bold'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+                title="Tampilkan Video 100% Utuh (Tanpa Terpotong Sedikitpun)"
+              >
+                <Scan className="w-3 h-3" />
+                <span>Video Utuh</span>
+              </button>
+              <button
+                onClick={() => onUpdateSettings({ backdropFit: 'cover' })}
+                className={`px-2 py-1 rounded flex items-center gap-1 transition ${
+                  settings.backdropFit === 'cover'
+                    ? 'bg-amber-500 text-neutral-950 font-bold'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+                title="Penuhi Layar Penuh (Zoom / Cover)"
+              >
+                <Crop className="w-3 h-3" />
+                <span>Penuhi Layar</span>
+              </button>
+            </div>
+          )}
+
           {/* Aspect Ratio Toggle */}
           <div className="flex items-center bg-neutral-900 rounded-lg p-0.5 border border-neutral-800">
             <button
@@ -482,8 +543,9 @@ export const SubtitlePreview: React.FC<SubtitlePreviewProps> = ({
                 src={effectiveVideoUrl}
                 muted
                 playsInline
+                preload="auto"
                 loop
-                className="absolute inset-0 w-full h-full object-cover pointer-events-none z-0"
+                className="absolute inset-0 w-full h-full object-cover pointer-events-none z-0 transform-gpu"
               />
               <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/40 to-black/75 pointer-events-none z-0" />
             </>

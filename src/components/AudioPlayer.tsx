@@ -21,11 +21,14 @@ interface AudioPlayerProps {
   duration: number;
   currentTime: number;
   segments: SubtitleSegment[];
+  isPlaying?: boolean;
   onTimeUpdate: (time: number) => void;
   onDurationChange: (duration: number) => void;
   onAudioUpload: (file: File) => void;
   onSelectSegment: (segmentId: number) => void;
   onAnalyzeAudio?: () => void;
+  onPlayStateChange?: (isPlaying: boolean) => void;
+  onRateChange?: (rate: number) => void;
   isAnalyzing?: boolean;
 }
 
@@ -35,11 +38,14 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   duration,
   currentTime,
   segments,
+  isPlaying: externalIsPlaying,
   onTimeUpdate,
   onDurationChange,
   onAudioUpload,
   onSelectSegment,
   onAnalyzeAudio,
+  onPlayStateChange,
+  onRateChange,
   isAnalyzing,
 }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -146,6 +152,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     if (audioRef.current) {
       audioRef.current.playbackRate = rate;
     }
+    onRateChange?.(rate);
   };
 
   const handleVolumeChange = (newVol: number) => {
@@ -302,7 +309,18 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         src={audioUrl}
         onTimeUpdate={handleAudioTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
-        onEnded={() => setIsPlaying(false)}
+        onPlay={() => {
+          setIsPlaying(true);
+          onPlayStateChange?.(true);
+        }}
+        onPause={() => {
+          setIsPlaying(false);
+          onPlayStateChange?.(false);
+        }}
+        onEnded={() => {
+          setIsPlaying(false);
+          onPlayStateChange?.(false);
+        }}
       />
 
       {/* Hidden file input for audio / video */}
