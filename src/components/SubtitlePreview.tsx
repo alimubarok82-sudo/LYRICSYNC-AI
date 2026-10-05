@@ -8,6 +8,10 @@ import {
   Globe,
   Palette,
   Video,
+  Move,
+  ArrowUp,
+  ArrowDown,
+  Minimize,
 } from 'lucide-react';
 import {
   SubtitleSegment,
@@ -45,7 +49,11 @@ export const SubtitlePreview: React.FC<SubtitlePreviewProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
+  const subtitleBoxRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStartY, setDragStartY] = useState(0);
+  const [dragStartPercent, setDragStartPercent] = useState(0);
 
   // Sync background video time with timeline
   const effectiveVideoUrl = settings.backgroundVideoUrl || videoUrl;
@@ -112,8 +120,54 @@ export const SubtitlePreview: React.FC<SubtitlePreviewProps> = ({
     return { backgroundColor: '#000000' };
   };
 
+  // Calculate effective vertical percentage (0 - 100)
+  const currentYPercent = React.useMemo(() => {
+    if (typeof settings.customPositionY === 'number') {
+      return settings.customPositionY;
+    }
+    if (settings.position === 'top') return 20;
+    if (settings.position === 'center') return 50;
+    return 80; // default bottom
+  }, [settings.customPositionY, settings.position]);
+
+  // Handle Drag & Drop Mouse / Touch Interactions
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+    setDragStartY(e.clientY);
+    setDragStartPercent(currentYPercent);
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDragging || !containerRef.current) return;
+    const containerRect = containerRef.current.getBoundingClientRect();
+    if (!containerRect.height) return;
+
+    const deltaY = e.clientY - dragStartY;
+    const deltaPercent = (deltaY / containerRect.height) * 100;
+    const newPercent = Math.max(8, Math.min(92, Math.round(dragStartPercent + deltaPercent)));
+
+    onUpdateSettings({
+      customPositionY: newPercent,
+      position: newPercent < 33 ? 'top' : newPercent > 66 ? 'bottom' : 'center',
+    });
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isDragging) {
+      setIsDragging(false);
+      try {
+        (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+      } catch (_) {}
+    }
+  };
+
   // Vertical placement
   const getVerticalPlacementClass = () => {
+    if (typeof settings.customPositionY === 'number') {
+      return ''; // We will use inline absolute positioning
+    }
     switch (settings.position) {
       case 'top':
         return 'justify-start pt-10 sm:pt-16';
@@ -239,6 +293,51 @@ export const SubtitlePreview: React.FC<SubtitlePreviewProps> = ({
             </div>
           )}
 
+          {/* Quick Position Selector (Atas / Tengah / Bawah / Reset) */}
+          <div className="flex items-center bg-neutral-900 rounded-lg p-0.5 border border-neutral-800 text-[11px]">
+            <span className="px-1.5 text-neutral-500 font-medium hidden sm:inline flex items-center gap-1">
+              <Move className="w-3 h-3 text-amber-400" /> Posisi:
+            </span>
+            <button
+              onClick={() => onUpdateSettings({ position: 'top', customPositionY: 18 })}
+              className={`px-2 py-1 rounded transition-colors ${
+                (settings.position === 'top' && settings.customPositionY === undefined) || settings.customPositionY === 18
+                  ? 'bg-amber-500 text-neutral-950 font-bold'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+              title="Posisikan di Atas (Top)"
+            >
+              Atas
+            </button>
+            <button
+              onClick={() => onUpdateSettings({ position: 'center', customPositionY: 50 })}
+              className={`px-2 py-1 rounded transition-colors ${
+                (settings.position === 'center' && settings.customPositionY === undefined) || settings.customPositionY === 50
+                  ? 'bg-amber-500 text-neutral-950 font-bold'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+              title="Posisikan di Tengah (Center)"
+            >
+              Tengah
+            </button>
+            <button
+              onClick={() => onUpdateSettings({ position: 'bottom', customPositionY: 80 })}
+              className={`px-2 py-1 rounded transition-colors ${
+                (settings.position === 'bottom' && settings.customPositionY === undefined) || settings.customPositionY === 80
+                  ? 'bg-amber-500 text-neutral-950 font-bold'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+              title="Posisikan di Bawah (Bottom)"
+            >
+              Bawah
+            </button>
+            {typeof settings.customPositionY === 'number' && (
+              <span className="text-[10px] text-amber-300 font-mono px-1 border-l border-neutral-800" title="Posisi vertikal kustom">
+                {settings.customPositionY}%
+              </span>
+            )}
+          </div>
+
           {/* Aspect Ratio Toggle */}
           <div className="flex items-center bg-neutral-900 rounded-lg p-0.5 border border-neutral-800">
             <button
@@ -318,16 +417,53 @@ export const SubtitlePreview: React.FC<SubtitlePreviewProps> = ({
             </>
           )}
 
-          {/* Safe Area Subtitle Container */}
+          {/* Safe Area Subtitle Container with Interactive Drag & Drop */}
           <div
             className={`w-full subtitle-safe-area flex flex-col ${getHorizontalAlignmentClass()} z-10`}
+            style={
+              typeof settings.customPositionY === 'number'
+                ? {
+                    position: 'absolute',
+                    top: `${settings.customPositionY}%`,
+                    transform: 'translateY(-50%)',
+                    left: 0,
+                    right: 0,
+                  }
+                : undefined
+            }
           >
             {displaySegment ? (
               <div
-                className={`max-w-2xl w-full flex flex-col ${getHorizontalAlignmentClass()} transition-opacity duration-150 ${
+                ref={subtitleBoxRef}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerUp}
+                className={`group/drag relative max-w-2xl w-full flex flex-col ${getHorizontalAlignmentClass()} transition-opacity duration-150 cursor-grab active:cursor-grabbing select-none p-2 rounded-xl transition-all ${
+                  isDragging
+                    ? 'ring-2 ring-amber-400 bg-black/40 backdrop-blur-xs scale-[1.01]'
+                    : 'hover:ring-1 hover:ring-amber-500/40 hover:bg-black/20'
+                } ${
                   activeSegment ? 'opacity-100 scale-100' : 'opacity-40 scale-[0.99]'
                 }`}
+                title="Klik dan tahan mouse untuk menggeser posisi vertikal lirik secara bebas"
               >
+                {/* Floating Drag Indicator Hint */}
+                <div
+                  className={`absolute -top-7 left-1/2 -translate-x-1/2 pointer-events-none transition-all duration-150 flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold shadow-lg ${
+                    isDragging
+                      ? 'opacity-100 bg-amber-500 text-neutral-950 scale-105'
+                      : 'opacity-0 group-hover/drag:opacity-100 bg-neutral-900/90 text-amber-400 border border-neutral-700'
+                  }`}
+                >
+                  <Move className="w-3 h-3" />
+                  <span>
+                    {isDragging
+                      ? `Posisi: ${currentYPercent}%`
+                      : 'Tahan & Geser Vertikal'}
+                  </span>
+                </div>
+
                 {/* LAYER 1: ORIGINAL TEXT (DOMINANT) */}
                 {settings.displayMode !== 'translation' && (
                   <div

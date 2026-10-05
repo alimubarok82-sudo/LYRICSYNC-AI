@@ -441,7 +441,11 @@ export async function renderProjectToWebM(
 
     // Compute Vertical Anchor Y
     let startY: number;
-    if (settings.position === 'top') {
+    if (typeof settings.customPositionY === 'number') {
+      // Custom drag Y percentage (clamped between 8% and 92%)
+      const clampedPct = Math.max(8, Math.min(92, settings.customPositionY));
+      startY = (height * clampedPct) / 100 - totalBlockHeight / 2;
+    } else if (settings.position === 'top') {
       startY = height * (aspectRatio === '9:16' ? 0.14 : 0.12);
     } else if (settings.position === 'center') {
       startY = (height - totalBlockHeight) / 2;

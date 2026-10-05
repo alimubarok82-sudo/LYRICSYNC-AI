@@ -193,21 +193,58 @@ export const StyleSettingsModal: React.FC<StyleSettingsModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {/* Vertical Position */}
               <div className="bg-neutral-950 p-2.5 rounded-xl border border-neutral-800 space-y-1.5">
-                <label className="text-neutral-400 block">Vertical Position</label>
+                <div className="flex items-center justify-between text-neutral-400">
+                  <label>Vertical Position</label>
+                  {typeof settings.customPositionY === 'number' && (
+                    <span className="text-[10px] text-amber-400 font-mono">
+                      {settings.customPositionY}%
+                    </span>
+                  )}
+                </div>
                 <div className="flex bg-neutral-900 rounded-lg p-0.5 border border-neutral-800 text-[11px]">
-                  {(['top', 'center', 'bottom'] as const).map((pos) => (
-                    <button
-                      key={pos}
-                      onClick={() => onUpdateSettings({ position: pos })}
-                      className={`flex-1 py-1 rounded capitalize transition ${
-                        settings.position === pos
-                          ? 'bg-amber-500 text-neutral-950 font-bold'
-                          : 'text-neutral-400 hover:text-white'
-                      }`}
-                    >
-                      {pos}
-                    </button>
-                  ))}
+                  {(['top', 'center', 'bottom'] as const).map((pos) => {
+                    const targetPct = pos === 'top' ? 18 : pos === 'center' ? 50 : 80;
+                    return (
+                      <button
+                        key={pos}
+                        onClick={() => onUpdateSettings({ position: pos, customPositionY: targetPct })}
+                        className={`flex-1 py-1 rounded capitalize transition ${
+                          settings.position === pos &&
+                          (settings.customPositionY === undefined || settings.customPositionY === targetPct)
+                            ? 'bg-amber-500 text-neutral-950 font-bold'
+                            : 'text-neutral-400 hover:text-white'
+                        }`}
+                      >
+                        {pos}
+                      </button>
+                    );
+                  })}
+                </div>
+                {/* Vertical Slider */}
+                <div className="pt-1">
+                  <input
+                    type="range"
+                    min={10}
+                    max={90}
+                    value={
+                      typeof settings.customPositionY === 'number'
+                        ? settings.customPositionY
+                        : settings.position === 'top'
+                        ? 18
+                        : settings.position === 'center'
+                        ? 50
+                        : 80
+                    }
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      onUpdateSettings({
+                        customPositionY: val,
+                        position: val < 33 ? 'top' : val > 66 ? 'bottom' : 'center',
+                      });
+                    }}
+                    className="w-full h-1.5 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-amber-400"
+                    title="Geser posisi vertikal lirik secara presisi"
+                  />
                 </div>
               </div>
 

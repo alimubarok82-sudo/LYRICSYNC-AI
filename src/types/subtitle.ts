@@ -31,6 +31,7 @@ export interface SubtitleStyleSettings {
   shadow: boolean;
   lineSpacing: number;           // e.g. 12px
   position: SubtitlePosition;
+  customPositionY?: number; // Custom vertical position in percentage (0 - 100%)
   alignment: SubtitleAlignment;
   direction: TextDirection;
   backgroundColor: 'black' | 'dark' | 'transparent' | 'custom';
